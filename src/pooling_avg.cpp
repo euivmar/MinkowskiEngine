@@ -31,15 +31,15 @@
 
 #include <pybind11/pybind11.h>
 
-template <uint8_t D, typename Dtype, typename Itype>
+template <typename Dtype, typename Itype>
 void AvgPoolingForwardCPU(
     at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
     std::vector<int> tensor_strides, std::vector<int> strides,
     std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
     at::Tensor offsets, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg) {
-  CoordsManager<D, Itype> *p_coords_manager =
-      py_coords_manager.cast<CoordsManager<D, Itype> *>();
+  CoordsManager<Itype> *p_coords_manager =
+      py_coords_manager.cast<CoordsManager<Itype> *>();
   auto in_out = p_coords_manager->setupAndReturnInOutPerKernel(
       tensor_strides, strides, kernel_sizes, dilations, region_type, offsets,
       py_in_coords_key, py_out_coords_key, false);
@@ -61,15 +61,15 @@ void AvgPoolingForwardCPU(
       use_avg);
 }
 
-template <uint8_t D, typename Dtype, typename Itype>
+template <typename Dtype, typename Itype>
 void AvgPoolingBackwardCPU(
     at::Tensor in_feat, at::Tensor grad_in_feat, at::Tensor grad_out_feat,
     at::Tensor num_nonzero, std::vector<int> tensor_strides,
     std::vector<int> strides, std::vector<int> kernel_sizes,
     std::vector<int> dilations, int region_type, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg) {
-  CoordsManager<D, Itype> *p_coords_manager =
-      py_coords_manager.cast<CoordsManager<D, Itype> *>();
+  CoordsManager<Itype> *p_coords_manager =
+      py_coords_manager.cast<CoordsManager<Itype> *>();
   InOutMapKey map_key = p_coords_manager->getMapHashKey(
       tensor_strides, strides, kernel_sizes, dilations, region_type,
       py_in_coords_key, py_out_coords_key, false);
@@ -80,20 +80,20 @@ void AvgPoolingBackwardCPU(
   NonzeroAvgPoolingBackwardKernelCPU<Dtype, Itype>(
       grad_in_feat.data<Dtype>(), in_feat.size(0), grad_out_feat.data<Dtype>(),
       num_nonzero.data<Dtype>(), in_feat.size(1),
-      p_coords_manager->in_maps[map_key], p_coords_manager->out_maps[map_key],
+      p_coords_manager->_in_maps[map_key], p_coords_manager->_out_maps[map_key],
       use_avg);
 }
 
 #ifndef CPU_ONLY
-template <uint8_t D, typename Dtype, typename Itype>
+template <typename Dtype, typename Itype>
 void AvgPoolingForwardGPU(
     at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
     std::vector<int> tensor_strides, std::vector<int> strides,
     std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
     at::Tensor offsets, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg) {
-  CoordsManager<D, Itype> *p_coords_manager =
-      py_coords_manager.cast<CoordsManager<D, Itype> *>();
+  CoordsManager<Itype> *p_coords_manager =
+      py_coords_manager.cast<CoordsManager<Itype> *>();
   auto in_out = p_coords_manager->setupAndReturnInOutPerKernel(
       tensor_strides, strides, kernel_sizes, dilations, region_type, offsets,
       py_in_coords_key, py_out_coords_key, false);
@@ -135,15 +135,15 @@ void AvgPoolingForwardGPU(
       at::cuda::getCurrentCUDAStream());
 }
 
-template <uint8_t D, typename Dtype, typename Itype>
+template <typename Dtype, typename Itype>
 void AvgPoolingBackwardGPU(
     at::Tensor in_feat, at::Tensor grad_in_feat, at::Tensor grad_out_feat,
     at::Tensor num_nonzero, std::vector<int> tensor_strides,
     std::vector<int> strides, std::vector<int> kernel_sizes,
     std::vector<int> dilations, int region_type, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg) {
-  CoordsManager<D, Itype> *p_coords_manager =
-      py_coords_manager.cast<CoordsManager<D, Itype> *>();
+  CoordsManager<Itype> *p_coords_manager =
+      py_coords_manager.cast<CoordsManager<Itype> *>();
   InOutMapKey map_key = p_coords_manager->getMapHashKey(
       tensor_strides, strides, kernel_sizes, dilations, region_type,
       py_in_coords_key, py_out_coords_key, false);
@@ -152,7 +152,7 @@ void AvgPoolingBackwardGPU(
   grad_in_feat.zero_();
 
   int nnz = 0;
-  for (const auto &map : p_coords_manager->out_maps[map_key])
+  for (const auto &map : p_coords_manager->_out_maps[map_key])
     nnz += map.size();
 
   Itype *d_scr = p_coords_manager->getScratchGPUMemory(2 * nnz);
@@ -160,123 +160,65 @@ void AvgPoolingBackwardGPU(
   NonzeroAvgPoolingBackwardKernelGPU<Dtype, Itype>(
       grad_in_feat.data<Dtype>(), in_feat.size(0), grad_out_feat.data<Dtype>(),
       grad_out_feat.size(0), num_nonzero.data<Dtype>(), in_feat.size(1),
-      p_coords_manager->in_maps[map_key], p_coords_manager->out_maps[map_key],
+      p_coords_manager->_in_maps[map_key], p_coords_manager->_out_maps[map_key],
       use_avg, d_scr, at::cuda::getCurrentCUDAStream());
 }
 #endif
 
-template <typename Dtype, typename Itype>
-void DimSwitchAvgPoolingForwardCPU(
-    int D, at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    at::Tensor offsets, py::object py_in_coords_key,
-    py::object py_out_coords_key, py::object py_coords_manager, bool use_avg) {
-  SWITCH_DIM_TYPES(AvgPoolingForwardCPU, Dtype, Itype, in_feat, out_feat,
-                   num_nonzero, tensor_strides, strides, kernel_sizes,
-                   dilations, region_type, offsets, py_in_coords_key,
-                   py_out_coords_key, py_coords_manager, use_avg);
-}
-
-template void DimSwitchAvgPoolingForwardCPU<float, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
+template void AvgPoolingForwardCPU<float, int32_t>(
+    at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
     std::vector<int> tensor_strides, std::vector<int> strides,
     std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
     at::Tensor offsets, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
-template void DimSwitchAvgPoolingForwardCPU<double, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
+template void AvgPoolingForwardCPU<double, int32_t>(
+    at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
     std::vector<int> tensor_strides, std::vector<int> strides,
     std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
     at::Tensor offsets, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
-template <typename Dtype, typename Itype>
-void DimSwitchAvgPoolingBackwardCPU(
-    int D, at::Tensor in_feat, at::Tensor grad_in_feat,
-    at::Tensor grad_out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    py::object py_in_coords_key, py::object py_out_coords_key,
-    py::object py_coords_manager, bool use_avg) {
-  SWITCH_DIM_TYPES(AvgPoolingBackwardCPU, Dtype, Itype, in_feat, grad_in_feat,
-                   grad_out_feat, num_nonzero, tensor_strides, strides,
-                   kernel_sizes, dilations, region_type, py_in_coords_key,
-                   py_out_coords_key, py_coords_manager, use_avg);
-}
+template void AvgPoolingBackwardCPU<float, int32_t>(
+    at::Tensor in_feat, at::Tensor grad_in_feat, at::Tensor grad_out_feat,
+    at::Tensor num_nonzero, std::vector<int> tensor_strides,
+    std::vector<int> strides, std::vector<int> kernel_sizes,
+    std::vector<int> dilations, int region_type, py::object py_in_coords_key,
+    py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
-template void DimSwitchAvgPoolingBackwardCPU<float, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor grad_in_feat,
-    at::Tensor grad_out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    py::object py_in_coords_key, py::object py_out_coords_key,
-    py::object py_coords_manager, bool use_avg);
-
-template void DimSwitchAvgPoolingBackwardCPU<double, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor grad_in_feat,
-    at::Tensor grad_out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    py::object py_in_coords_key, py::object py_out_coords_key,
-    py::object py_coords_manager, bool use_avg);
+template void AvgPoolingBackwardCPU<double, int32_t>(
+    at::Tensor in_feat, at::Tensor grad_in_feat, at::Tensor grad_out_feat,
+    at::Tensor num_nonzero, std::vector<int> tensor_strides,
+    std::vector<int> strides, std::vector<int> kernel_sizes,
+    std::vector<int> dilations, int region_type, py::object py_in_coords_key,
+    py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
 #ifndef CPU_ONLY
-template <typename Dtype, typename Itype>
-void DimSwitchAvgPoolingForwardGPU(
-    int D, at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    at::Tensor offsets, py::object py_in_coords_key,
-    py::object py_out_coords_key, py::object py_coords_manager, bool use_avg) {
-  SWITCH_DIM_TYPES(AvgPoolingForwardGPU, Dtype, Itype, in_feat, out_feat,
-                   num_nonzero, tensor_strides, strides, kernel_sizes,
-                   dilations, region_type, offsets, py_in_coords_key,
-                   py_out_coords_key, py_coords_manager, use_avg);
-}
-
-template void DimSwitchAvgPoolingForwardGPU<float, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
+template void AvgPoolingForwardGPU<float, int32_t>(
+    at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
     std::vector<int> tensor_strides, std::vector<int> strides,
     std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
     at::Tensor offsets, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
-template void DimSwitchAvgPoolingForwardGPU<double, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
+template void AvgPoolingForwardGPU<double, int32_t>(
+    at::Tensor in_feat, at::Tensor out_feat, at::Tensor num_nonzero,
     std::vector<int> tensor_strides, std::vector<int> strides,
     std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
     at::Tensor offsets, py::object py_in_coords_key,
     py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
-template <typename Dtype, typename Itype>
-void DimSwitchAvgPoolingBackwardGPU(
-    int D, at::Tensor in_feat, at::Tensor grad_in_feat,
-    at::Tensor grad_out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    py::object py_in_coords_key, py::object py_out_coords_key,
-    py::object py_coords_manager, bool use_avg) {
-  SWITCH_DIM_TYPES(AvgPoolingBackwardGPU, Dtype, Itype, in_feat, grad_in_feat,
-                   grad_out_feat, num_nonzero, tensor_strides, strides,
-                   kernel_sizes, dilations, region_type, py_in_coords_key,
-                   py_out_coords_key, py_coords_manager, use_avg);
-}
+template void AvgPoolingBackwardGPU<float, int32_t>(
+    at::Tensor in_feat, at::Tensor grad_in_feat, at::Tensor grad_out_feat,
+    at::Tensor num_nonzero, std::vector<int> tensor_strides,
+    std::vector<int> strides, std::vector<int> kernel_sizes,
+    std::vector<int> dilations, int region_type, py::object py_in_coords_key,
+    py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 
-template void DimSwitchAvgPoolingBackwardGPU<float, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor grad_in_feat,
-    at::Tensor grad_out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    py::object py_in_coords_key, py::object py_out_coords_key,
-    py::object py_coords_manager, bool use_avg);
-
-template void DimSwitchAvgPoolingBackwardGPU<double, int32_t>(
-    int D, at::Tensor in_feat, at::Tensor grad_in_feat,
-    at::Tensor grad_out_feat, at::Tensor num_nonzero,
-    std::vector<int> tensor_strides, std::vector<int> strides,
-    std::vector<int> kernel_sizes, std::vector<int> dilations, int region_type,
-    py::object py_in_coords_key, py::object py_out_coords_key,
-    py::object py_coords_manager, bool use_avg);
+template void AvgPoolingBackwardGPU<double, int32_t>(
+    at::Tensor in_feat, at::Tensor grad_in_feat, at::Tensor grad_out_feat,
+    at::Tensor num_nonzero, std::vector<int> tensor_strides,
+    std::vector<int> strides, std::vector<int> kernel_sizes,
+    std::vector<int> dilations, int region_type, py::object py_in_coords_key,
+    py::object py_out_coords_key, py::object py_coords_manager, bool use_avg);
 #endif

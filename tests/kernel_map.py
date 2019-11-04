@@ -23,48 +23,32 @@
 # of the code.
 import unittest
 
-import torch
+from MinkowskiEngine import SparseTensor, MinkowskiConvolution
 
-from MinkowskiEngine import CoordsKey, CoordsManager
+from tests.common import data_loader
 
 
-class Test(unittest.TestCase):
+class TestKernelMap(unittest.TestCase):
 
-    def test_hash(self):
-        try:
-            import numpy as np
-        except:
-            return
-
-        N, M = 1000, 1000
-        I, J = np.meshgrid(np.arange(N), np.arange(M))
-        I = I.reshape(-1, 1) - 100
-        J = J.reshape(-1, 1) - 100
-        K = np.zeros_like(I)
-        C = np.hstack((I, J, K))
-        coords_manager = CoordsManager(D=2)
-        coords_key = CoordsKey(2)
-        coords_key.setTensorStride(1)
-        coords_manager.initialize(torch.from_numpy(C).int(), coords_key)
-        print(coords_manager)
-
-    def test_coords_key(self):
-        key = CoordsKey(D=1)
-        key.setKey(1)
-        self.assertTrue(key.getKey() == 1)
-        key.setTensorStride([1])
-        print(key)
-
-    def test_coords_manager(self):
-        key = CoordsKey(D=1)
-        key.setTensorStride(1)
-
-        cm = CoordsManager(D=1)
-        coords = (torch.rand(5, 2) * 100).int()
-        cm.initialize(coords, key)
-        print(cm.get_row_indices_per_batch(key))
-        print(key)
-        print(cm)
+    def test_kernelmap(self):
+        print(f"{self.__class__.__name__}: test_kernelmap")
+        in_channels, out_channels, D = 2, 3, 2
+        coords, feats, labels = data_loader(in_channels)
+        feats = feats.double()
+        feats.requires_grad_()
+        input = SparseTensor(feats, coords=coords)
+        # Initialize context
+        conv = MinkowskiConvolution(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=2,
+            has_bias=True,
+            dimension=D)
+        conv = conv.double()
+        output = conv(input)
+        print(input.C, output.C)
+        print(output.coords_man.get_kernel_map(1, 2, stride=2, kernel_size=3))
 
 
 if __name__ == '__main__':

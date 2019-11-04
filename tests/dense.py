@@ -22,49 +22,49 @@
 # Networks", CVPR'19 (https://arxiv.org/abs/1904.08755) if you use any part
 # of the code.
 import unittest
-
 import torch
 
-from MinkowskiEngine import CoordsKey, CoordsManager
+from MinkowskiEngine import SparseTensor, MinkowskiConvolution
+
+from tests.common import data_loader
 
 
-class Test(unittest.TestCase):
+class TestDense(unittest.TestCase):
 
-    def test_hash(self):
-        try:
-            import numpy as np
-        except:
-            return
+    def test(self):
+        print(f"{self.__class__.__name__}: test_dense")
+        in_channels, out_channels, D = 2, 3, 2
+        coords, feats, labels = data_loader(in_channels)
+        feats = feats.double()
+        feats.requires_grad_()
+        input = SparseTensor(feats, coords=coords)
+        # Initialize context
+        conv = MinkowskiConvolution(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=2,
+            has_bias=True,
+            dimension=D)
+        conv = conv.double()
+        output = conv(input)
+        print(input.C, output.C)
 
-        N, M = 1000, 1000
-        I, J = np.meshgrid(np.arange(N), np.arange(M))
-        I = I.reshape(-1, 1) - 100
-        J = J.reshape(-1, 1) - 100
-        K = np.zeros_like(I)
-        C = np.hstack((I, J, K))
-        coords_manager = CoordsManager(D=2)
-        coords_key = CoordsKey(2)
-        coords_key.setTensorStride(1)
-        coords_manager.initialize(torch.from_numpy(C).int(), coords_key)
-        print(coords_manager)
+        # Convert to a dense tensor
+        dense_output, min_coord, tensor_stride = output.dense()
 
-    def test_coords_key(self):
-        key = CoordsKey(D=1)
-        key.setKey(1)
-        self.assertTrue(key.getKey() == 1)
-        key.setTensorStride([1])
-        print(key)
+        dense_output, min_coord, tensor_stride = output.dense(min_coords=torch.IntTensor([-2, -2]), max_coords=torch.IntTensor([4, 4]))
 
-    def test_coords_manager(self):
-        key = CoordsKey(D=1)
-        key.setTensorStride(1)
+        print(dense_output)
+        print(min_coord)
+        print(tensor_stride)
 
-        cm = CoordsManager(D=1)
-        coords = (torch.rand(5, 2) * 100).int()
-        cm.initialize(coords, key)
-        print(cm.get_row_indices_per_batch(key))
-        print(key)
-        print(cm)
+        print(feats.grad)
+
+        loss = dense_output.sum()
+        loss.backward()
+
+        print(feats.grad)
 
 
 if __name__ == '__main__':

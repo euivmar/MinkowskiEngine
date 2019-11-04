@@ -53,6 +53,11 @@ class MinkowskiBroadcastFunction(Function):
         assert input_features.shape[1] == input_features_global.shape[1]
         assert input_features.type() == input_features_global.type()
         assert isinstance(operation_type, OperationType)
+        if not input_features.is_contiguous():
+            input_features = input_features.contiguous()
+        if not input_features_global.is_contiguous():
+            input_features_global = input_features_global.contiguous()
+
         ctx.op = operation_type_to_int(operation_type)
 
         ctx.in_feat = input_features
@@ -64,20 +69,22 @@ class MinkowskiBroadcastFunction(Function):
         out_feat = input_features.new()
 
         fw_fn = getattr(MEB, 'BroadcastForward' + get_postfix(input_features))
-        fw_fn(ctx.in_coords_key.D, ctx.in_feat, ctx.in_feat_glob, out_feat,
-              ctx.op, ctx.in_coords_key.CPPCoordsKey,
-              ctx.glob_coords_key.CPPCoordsKey,
+        fw_fn(ctx.in_feat, ctx.in_feat_glob, out_feat, ctx.op,
+              ctx.in_coords_key.CPPCoordsKey, ctx.glob_coords_key.CPPCoordsKey,
               ctx.coords_manager.CPPCoordsManager)
         return out_feat
 
     @staticmethod
     def backward(ctx, grad_out_feat):
+        if not grad_out_feat.is_contiguous():
+            grad_out_feat = grad_out_feat.contiguous()
+
         grad_in_feat = grad_out_feat.new()
         grad_in_feat_glob = grad_out_feat.new()
         bw_fn = getattr(MEB, 'BroadcastBackward' + get_postfix(grad_out_feat))
-        bw_fn(ctx.in_coords_key.D, ctx.in_feat, grad_in_feat, ctx.in_feat_glob,
-              grad_in_feat_glob, grad_out_feat, ctx.op,
-              ctx.in_coords_key.CPPCoordsKey, ctx.glob_coords_key.CPPCoordsKey,
+        bw_fn(ctx.in_feat, grad_in_feat, ctx.in_feat_glob, grad_in_feat_glob,
+              grad_out_feat, ctx.op, ctx.in_coords_key.CPPCoordsKey,
+              ctx.glob_coords_key.CPPCoordsKey,
               ctx.coords_manager.CPPCoordsManager)
         return grad_in_feat, grad_in_feat_glob, None, None, None, None
 
@@ -139,8 +146,8 @@ class MinkowskiBroadcastAddition(AbstractMinkowskiBroadcast):
             space, meshes and 3D shapes are in a 3D space.
 
         """
-        super(MinkowskiBroadcastAddition, self).__init__(
-            OperationType.ADDITION, dimension)
+        super(MinkowskiBroadcastAddition,
+              self).__init__(OperationType.ADDITION, dimension)
 
 
 class MinkowskiBroadcastMultiplication(AbstractMinkowskiBroadcast):
@@ -172,8 +179,8 @@ class MinkowskiBroadcastMultiplication(AbstractMinkowskiBroadcast):
             space, meshes and 3D shapes are in a 3D space.
 
         """
-        super(MinkowskiBroadcastMultiplication, self).__init__(
-            OperationType.MULTIPLICATION, dimension)
+        super(MinkowskiBroadcastMultiplication,
+              self).__init__(OperationType.MULTIPLICATION, dimension)
 
 
 class MinkowskiBroadcast(Module):

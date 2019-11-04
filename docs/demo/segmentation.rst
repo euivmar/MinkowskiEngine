@@ -7,7 +7,7 @@ install open3d-python`.
 .. code-block:: shell
 
    cd /path/to/MinkowskiEngine
-   python examples/indoor.py
+   python -m examples.indoor
 
 
 Segmentation of a hotel room
@@ -61,6 +61,10 @@ input and the prediction side-by-side.
 .. image:: segmentation.png
 
 
-The weights are downloaded automatically once you run the example and the weights are currently the top-ranking algorithm on the `Scannet 3D segmentation benchmark <http://kaldir.vc.in.tum.de/scannet_benchmark/>`_.
+The weights are downloaded automatically once you run the example and the
+weights are currently the top-ranking algorithm on the `Scannet 3D segmentation
+benchmark <http://kaldir.vc.in.tum.de/scannet_benchmark/>`_.
 
-Please refer to the `complete indoor segmentation example <https://github.com/StanfordVL/MinkowskiEngine/blob/master/examples/indoor.py>`_ for more detail.
+Please refer to the `complete indoor segmentation example
+<https://github.com/StanfordVL/MinkowskiEngine/blob/master/examples/indoor.py>`_
+for more detail.

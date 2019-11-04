@@ -27,16 +27,12 @@ from Common import convert_to_int_list
 import MinkowskiEngineBackend as MEB
 
 
-def initialize_nthreads(num_threads, D):
-    assert num_threads > 0
-    getattr(MEB, f'PyCoordsManager{D}int32')(num_threads)
-
-
 class CoordsKey():
 
     def __init__(self, D):
         self.D = D
-        self.CPPCoordsKey = getattr(MEB, f'PyCoordsKey{self.D}')()
+        self.CPPCoordsKey = getattr(MEB, f'PyCoordsKey')()
+        self.CPPCoordsKey.setDimension(D)
 
     def setKey(self, key):
         self.CPPCoordsKey.setKey(key)
@@ -57,15 +53,12 @@ class CoordsKey():
 
 class CoordsManager():
 
-    def __init__(self, num_threads=None, D=-1):
+    def __init__(self, D=-1):
         if D < 1:
             raise ValueError(f"Invalid dimension {D}")
         self.D = D
-        CPPCoordsManager = getattr(MEB, f'PyCoordsManager{D}int32')
-        if num_threads:
-            coords_man = CPPCoordsManager(num_threads)
-        else:
-            coords_man = CPPCoordsManager()
+        CPPCoordsManager = getattr(MEB, f'PyCoordsManagerint32')
+        coords_man = CPPCoordsManager()
         self.CPPCoordsManager = coords_man
 
     def initialize(self, coords, coords_key, enforce_creation=False):
@@ -146,6 +139,27 @@ class CoordsManager():
             out_coords_key.CPPCoordsKey, is_transpose)
         return kernel_map
 
+    def get_kernel_map_by_key(self,
+                              in_coords_key,
+                              out_coords_key,
+                              tensor_strides=1,
+                              stride=1,
+                              kernel_size=3,
+                              dilation=1,
+                              region_type=0,
+                              is_transpose=False):
+        tensor_strides = convert_to_int_list(tensor_strides, self.D)
+        strides = convert_to_int_list(stride, self.D)
+        kernel_sizes = convert_to_int_list(kernel_size, self.D)
+        dilations = convert_to_int_list(dilation, self.D)
+
+        kernel_map = torch.IntTensor()
+        self.CPPCoordsManager.getKernelMap(
+            kernel_map, tensor_strides, strides, kernel_sizes, dilations,
+            region_type, in_coords_key.CPPCoordsKey,
+            out_coords_key.CPPCoordsKey, is_transpose)
+        return kernel_map
+
     def get_coords_size_by_coords_key(self, coords_key):
         assert isinstance(coords_key, CoordsKey)
         return self.CPPCoordsManager.getCoordsSize(coords_key.CPPCoordsKey)
@@ -155,14 +169,6 @@ class CoordsManager():
         in_key = self.get_coords_key(in_tensor_strides)
         out_key = self.get_coords_key(out_tensor_strides)
         return self.get_mapping_by_coords_key(in_key, out_key)
-
-    def get_mapping_by_coords_key(self, in_coords_key, out_coords_key):
-        assert isinstance(in_coords_key, CoordsKey) \
-            and isinstance(out_coords_key, CoordsKey)
-        mapping = torch.IntTensor()
-        self.CPPCoordsManager.getCoordsMapping(
-            mapping, in_coords_key.CPPCoordsKey, out_coords_key.CPPCoordsKey)
-        return mapping
 
     def permute_label(self,
                       label,

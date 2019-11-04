@@ -25,7 +25,7 @@ import torch
 import unittest
 
 from MinkowskiEngine import SparseTensor, MinkowskiConvolution, MinkowskiConvolutionFunction, \
-    MinkowskiConvolutionTranspose, MinkowskiConvolutionTransposeFunction, initialize_nthreads
+    MinkowskiConvolutionTranspose, MinkowskiConvolutionTransposeFunction
 
 from tests.common import data_loader
 from utils.gradcheck import gradcheck
@@ -34,6 +34,7 @@ from utils.gradcheck import gradcheck
 class TestConvolution(unittest.TestCase):
 
     def test_gpu(self):
+        print(f"{self.__class__.__name__}: test_gpu")
         if not torch.cuda.is_available():
             return
         in_channels, out_channels, D = 2, 3, 2
@@ -75,6 +76,7 @@ class TestConvolution(unittest.TestCase):
                            input.coords_key, None, input.coords_man)))
 
     def test(self):
+        print(f"{self.__class__.__name__}: test")
         in_channels, out_channels, D = 2, 3, 2
         coords, feats, labels = data_loader(in_channels)
         feats = feats.double()
@@ -110,6 +112,7 @@ class TestConvolution(unittest.TestCase):
 class TestConvolutionTranspose(unittest.TestCase):
 
     def test_gpu(self):
+        print(f"{self.__class__.__name__}: test_gpu")
         if not torch.cuda.is_available():
             return
 
@@ -147,10 +150,11 @@ class TestConvolutionTranspose(unittest.TestCase):
             gradcheck(fn,
                       (input.F, conv_tr.kernel, input.tensor_stride,
                        conv_tr.stride, conv_tr.kernel_size, conv_tr.dilation,
-                       conv_tr.region_type_, conv_tr.region_offset_,
+                       conv_tr.region_type_, conv_tr.region_offset_, False,
                        input.coords_key, None, input.coords_man)))
 
     def test(self):
+        print(f"{self.__class__.__name__}: test")
         in_channels, out_channels, D = 2, 3, 2
         coords, feats, labels = data_loader(in_channels)
         feats = feats.double()
@@ -184,10 +188,9 @@ class TestConvolutionTranspose(unittest.TestCase):
             gradcheck(fn,
                       (input.F, conv_tr.kernel, input.tensor_stride,
                        conv_tr.stride, conv_tr.kernel_size, conv_tr.dilation,
-                       conv_tr.region_type_, conv_tr.region_offset_,
+                       conv_tr.region_type_, conv_tr.region_offset_, False,
                        input.coords_key, None, input.coords_man)))
 
 
 if __name__ == '__main__':
-    initialize_nthreads(3, D=2)
     unittest.main()

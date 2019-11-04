@@ -4,6 +4,7 @@ The MinkowskiEngine is an auto-differentiation library for sparse tensors. It su
 
 ## Features
 
+- Unlimited high-dimensional sparse tensor support
 - Dynamic computation graph
 - Custom kernel shapes
 - [Generalized sparse convolution](https://stanfordvl.github.io/MinkowskiEngine/generalized_sparse_conv.html)
@@ -18,7 +19,7 @@ The MinkowskiEngine is an auto-differentiation library for sparse tensors. It su
 
 - Ubuntu 14.04 or higher
 - CUDA 10.0 or higher
-- pytorch 1.1 or higher
+- pytorch == 1.2
 
 
 ## Installation
@@ -40,7 +41,7 @@ conda create -n py3-mink python=3.7 anaconda
 conda activate py3-mink
 conda install openblas numpy
 conda install -c bioconda google-sparsehash
-conda install pytorch torchvision -c pytorch
+conda install pytorch==1.2 torchvision -c pytorch
 ```
 
 #### 2. Compilation and installation
@@ -60,7 +61,7 @@ Like the anaconda installation, make sure that you install pytorch with the the 
 ```
 sudo apt install libsparsehash-dev libopenblas-dev
 # within a python3 environment
-pip install torch
+pip install torch==1.2
 git clone https://github.com/StanfordVL/MinkowskiEngine.git
 cd MinkowskiEngine
 pip install -r requirements.txt
@@ -140,8 +141,8 @@ class ExampleNetwork(ME.MinkowskiNetwork):
 
 ### Running the Examples
 
-After installing the package, run `python examples/example.py` in the package root directory.
-For indoor semantic segmentation. run `python examples/indoor.py` in the package root directory.
+After installing the package, run `python -m examples.example` in the package root directory.
+For indoor semantic segmentation. run `python -m examples.indoor` in the package root directory.
 
 ![](https://stanfordvl.github.io/MinkowskiEngine/_images/segmentation.png)
 
@@ -160,3 +161,20 @@ page](https://github.com/StanfordVL/MinkowskiEngine/issues).
 ## References
 
 - [4D Spatio-Temporal ConvNets: Minkowski Convolutional Neural Networks, CVPR'19](https://arxiv.org/abs/1904.08755), [[pdf]](https://arxiv.org/pdf/1904.08755.pdf)
+
+```
+@inproceedings{choy20194d,
+  title={4D Spatio-Temporal ConvNets: Minkowski Convolutional Neural Networks},
+  author={Choy, Christopher and Gwak, JunYoung and Savarese, Silvio},
+  booktitle={Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition},
+  pages={3075--3084},
+  year={2019}
+}
+```
+
+## Projects using MinkowskiEngine
+
+Feel free to send me your project link to ![](https://node1.chrischoy.org/data/email.png).
+
+- [4D Spatio-Temporal Segmentation](https://github.com/chrischoy/SpatioTemporalSegmentation)
+- [Fully Convolutional Geometric Features, ICCV'19](https://github.com/chrischoy/FCGF)
